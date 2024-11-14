@@ -1,0 +1,160 @@
+<%- include('layouts/header') %>
+
+
+<div class="container">
+  <h1>Hello <%= user.name %></h1>
+  <div class="row">
+    <div class="col-md-6">
+      <ul class="list-group mt-2 mb-2 user-list" style="width:50%">
+
+     
+        <% if(userlist.length>0)
+
+    for(let i=0; i<userlist.length; i++)
+    {
+     %>
+        <li class="list-group-item" data-id="<%= userlist[i]._id%>" data-name="<%= userlist[i].name %>" > <%= userlist[i].name %> 
+            <%
+            if(userlist[i]['is_online']){
+            %> 
+            <sup class="online-status" id="<%= userlist[i]._id %>-status">Online</sup>
+            <%
+            }
+             else{
+                %> 
+                <sup class="offline-status" id="<%= userlist[i]._id %>-status">Offline</sup>
+            <%
+            }
+            
+            %>
+            
+            </li>
+        <%
+    }
+  %>
+      </ul>
+    </div>
+    <div class="col-md-6 text-align-center">
+      <h1 id="chat-heading">Chat</h1>
+      <div class="chat-box" id="chat-box">
+        <div class="chat-section" id="chat-section">
+           
+            
+
+                
+        </div>
+
+        <form action="" id="chat-form">
+          <div class="mb-3">
+            <input type="text" class="form-control" id="message" placeholder="message">
+          </div>
+          <input type="submit" class="btn btn-outline-primary" value="send">
+        </form>
+      </div>
+    </div>
+
+
+  </div>
+
+</div>
+<a class="btn btn-danger" href="/logout">Logout</a>
+
+</div>
+    
+      <script>
+        const sender_id = '<%= user._id %>';
+        let receiver_id;
+        const auth = {token:sender_id}
+  
+        const socket = io('/chatApplication',{auth:auth});
+
+        $(document).ready(function(){
+            $('.list-group-item').click(function (){
+            $('#chat-section').html('');
+            $('#chat-heading').text($(this).attr('data-name'));
+            const id= $(this).attr('data-id');
+            receiver_id = id;
+            $('.chat-box').show();
+            socket.emit('getOldChat',{sender_id:sender_id,receiver_id:receiver_id})
+            });
+        });
+       socket.on('getOnlineUser',function(data){
+        console.log(data);
+            $('#'+data.user_id+'-status').text('online');
+            $('#'+data.user_id+'-status').removeClass('offline-status');
+            $('#'+data.user_id+'-status').addClass('online-status');
+       });
+
+        socket.on('getOfflineUser',function(data){
+            $('#'+data.user_id+'-status').text('offline');
+            $('#'+data.user_id+'-status').removeClass('online-status');
+            $('#'+data.user_id+'-status').addClass('offline-status');
+       });
+
+      $('#chat-form').submit(function(event){
+        event.preventDefault();
+        const message =  $('#message').val();
+        const data = {sender_id:sender_id,receiver_id:receiver_id,message:message}
+        $.ajax({
+            url:'/chat/',
+            type:'post',
+            data:data,
+            success:function(response){
+                console.log(response);
+                if(response.success){
+                let html = `
+                  <h5 class="current-user-chat">`
+                   +message+
+               ` </h5>`;
+               scrollChat();
+                $('#chat-section').append(html);
+                $('#message').val('')
+                socket.emit('newChat',data);
+                } else{
+                   alert('error');
+                }
+            }
+        });
+      });
+
+
+      socket.on('loadNewChat',function(data){
+        if(sender_id ==data.receiver_id && receiver_id == data.sender_id){ 
+             let html = `
+                  <h5 class="distance-user-chat">`
+                   +data.message+
+               ` </h5>`;
+                $('#chat-section').append(html);
+                scrollChat();
+                  }
+      });
+
+      socket.on('loadOldChat',function(data){
+        console.log(data);
+           const chat = data.chat;
+           let html='';
+           for(let i =0; i<chat.length;i++){
+            let addClass='';
+            
+              if(chat[i]['sender_id']== sender_id){
+                 addClass= 'current-user-chat'
+              } else{
+                addClass = 'distance-user-chat'
+              }
+              html += `<div class=" ` + addClass + `" > 
+                <h5>` + chat[i]['message'] + `</h5>
+                
+                </div>`;
+           }
+        $('#chat-section').append(html);
+        scrollChat();
+      });
+
+      function scrollChat(){
+        const chatSection = $('#chat-section');
+        chatSection.animate({
+            scrollTop:chatSection.offset().top + chatSection[0].scrollHeight
+         },0);
+      }
+    </script>
+<%- include('layouts/footer') %>
